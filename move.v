@@ -9,5 +9,13 @@ module move(clk,rst,jump,crouch,dinor,outc, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5);
        .dinor(dinor),
        .outc(outc)
    );
+
+   end_screen end_mod(
+       .clk(clk),
+       .rst(rst),
+       .enable(game_state == 2'b10),
+       .dinor(dinor),
+       .outc(outc)
+   );
     
 endmodule
