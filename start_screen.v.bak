@@ -1,0 +1,71 @@
+module start_screen(
+    input clk,          // 顯示掃描時鐘（10kHz）
+    input enable,       // 關鍵：使能信號，當 enable=1 時模組才工作
+    output reg [7:0] dinor,   // 行選擇輸出
+    output reg [15:0] outc    // 列資料輸出
+);
+    
+    // 掃描計數器
+    reg [2:0] row_idx;
+    // 閃爍控制計數器
+    reg [23:0] blink_counter;
+    reg blink_state;
+    // 開始畫面圖案定義（8行 x 16列）
+    reg [15:0] start_pattern [0:7];
+    initial begin
+        // 設計一個簡單的開始畫面//嘿隊就是這麼兩光
+        start_pattern[0] = 16'b0000000000000000;  // 第0行
+        start_pattern[1] = 16'b0000000010000000;  // 第1行
+        start_pattern[2] = 16'b0000000011000000;  // 第2行
+        start_pattern[3] = 16'b0000000011100000;  // 第3行
+        start_pattern[4] = 16'b0000000011000000;  // 第4行
+        start_pattern[5] = 16'b0000000010000000;  // 第5行
+        start_pattern[6] = 16'b0000000000000000;  // 第6行
+        start_pattern[7] = 16'b0000000000000000;  // 第7行
+    end
+    
+    // 行掃描計數器
+    always @(posedge clk or negedge rst) begin
+        if (!rst) begin
+            row_idx <= 3'd0;
+        end else if (enable) begin  // 只在使能時才掃描
+            row_idx <= row_idx + 1;
+        end
+    end
+    
+    // 閃爍控制（0.5秒間隔）
+    always @(posedge clk or negedge rst) begin
+        if (!rst) begin
+            blink_counter <= 0;
+            blink_state <= 0;
+        end else if (enable) begin  // 只在使能時才閃爍
+            if (blink_counter >= 5000) begin  // 10kHz * 0.5秒 = 5000
+                blink_counter <= 0;
+                blink_state <= ~blink_state;
+            end else begin
+                blink_counter <= blink_counter + 1;
+            end
+        end
+    end
+    
+    // 輸出控制
+    always @(*) begin
+        if (enable) begin
+            // 模組使能時：顯示開始畫面
+            start_active = 1;
+            
+            // 行選擇信號（低電平有效）
+            dinor = ~(8'b00000001 << row_idx);
+            
+            // 如果閃爍狀態為1，顯示圖案；為0，則關閉顯示
+            if (blink_state) begin
+                outc = start_pattern[row_idx];
+            end else begin
+                outc = 16'b0;
+            end
+        end else begin
+            dinor = 8'b11111111;  // 所有行關閉
+            outc = 16'b0;         // 所有列關閉
+        end
+    end
+    

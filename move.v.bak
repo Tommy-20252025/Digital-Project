@@ -1,0 +1,65 @@
+
+`define TimeExp 32'd1249999 //用於divider 產生約 20Hz 的遊戲邏輯時鐘
+`define TimeTick 32'd2499 //產生約 10K Hz 的顯示掃描時鐘
+module move(clk,rst,jump,crouch,dinor,outc);
+input clk,rst,jump,crouch;
+// jump 跳躍按鈕（玩家按下時恐龍跳躍）
+// 蹲下按鈕（玩家按下時恐龍蹲下）
+
+output [7:0]dinor; 
+//dinor : 恐龍的「行 row 」信號, 障礙物的「行」信號
+    output [15:0]outc;
+wire [15:0]dinoc,statec;
+//dinorc 恐龍的「列資料」信號（16列的點亮狀態）
+//statec 障礙物的「列資料」信號（16列）
+
+wire state,shape,clkdiv,clkdis;
+    
+// clkdis 顯示掃描的快時鐘（約 500Hz）for dot matrix 
+// sate  隨機生成的障礙物類型
+// 0 = 仙人掌，1 = 飛鳥
+// shape 當前顯示的障礙物類型（複製自 state
+
+wire [2:0] dinonow;
+// 恐龍當前的圖 ID（sprite_id）
+// 0-1: 跑步，2-3: 跳躍，4-5: 蹲下
+    
+    
+wire [4:0] xcoor;
+    //畫面16bit（用32bit+mask移動右到左）
+// 障礙物的 X 座標（0-31）
+// 31 = 最右側（剛出現）
+// 0 = 最左側（即將消失）
+// 每個時鐘週期 +1，循環移動
+
+
+//關於設計障礙物生成的困難與思考過程，最後選擇簡化為：
+//一次只有一個障礙物（大大簡化邏輯）
+//使用隨機生成（random 模組）決定生成仙人掌或飛鳥
+//使用移動控制（lefttick 模組）讓障礙物從右向左滑動
+//當障礙物離開螢幕後（xcoor 回到 31），再隨機生成新的
+
+
+//solution: use spawn delay + individual
+//random spawn, spawn delay
+//1 obstacle at time
+
+freqdiv f1(.clk(clk),.rst(rst),.out(clkdiv));
+
+freqdis f2(.clk(clk),.rst(rst),.out(clkdis));
+
+
+//dino
+dinologic d1(.clk(clkdiv),.rst(rst),.jump(jump),.crouch(crouch),.sprite_id(dinonow));
+
+//object gen
+random r1(.clk(clkdiv),.rst(rst),.out(state));
+lefttick r2(.clk(clkdiv),.rst(rst),.state(state),.xcoor(xcoor),.shape(shape));
+  or o1(outc,dinoc,statec);
+//display
+//use fast clock
+display d2(.clk(clkdis),.rst(rst),.dinonow(dinonow),.xcoor(xcoor),.shape(shape),.dinor(dinor),.dinoc(dinoc),.stater(stater),.statec(statec));
+
+   // or o1(dinoc,statec,outc);
+    
+endmodule
