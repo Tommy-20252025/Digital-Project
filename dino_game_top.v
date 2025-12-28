@@ -372,9 +372,7 @@ module obstacle_move(
                     end
                 end
                 
-                2'd2: begin // 結束畫面狀態：停止障礙物移動但保持當前狀態
-                    // 保持當前位置不變
-                    // 不移動障礙物
+                2'd2: begin // 結束畫面狀態：
 					xcoor <= 0;
                 end
                 
