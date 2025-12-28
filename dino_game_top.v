@@ -125,9 +125,10 @@ module display_combined(
             
             case (game_state)
                 2'd0: begin // 開始畫面狀態
+					 outc <= 16'b0;
                     if (!jump||!crouch) begin  // 按下跳躍鍵開始遊戲
                         game_state <= 1;
-                        outc <= 0;  // 清除畫面
+                     //   outc <= 0;  // 清除畫面
                     end
                     else begin
                         // 閃爍顯示開始畫面
@@ -217,9 +218,10 @@ module display_combined(
                 end
                 
                 2'd2: begin // 結束畫面狀態
+					 outc <= 16'b0; 
                     if (!jump||!crouch) begin  // 按下跳躍鍵重新開始
                         game_state <= 0;
-                        outc <= 0;
+                      //  outc <= 0;
                     end
                     else begin
                         // 閃爍顯示結束畫面
