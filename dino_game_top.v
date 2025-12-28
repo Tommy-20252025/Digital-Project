@@ -126,6 +126,7 @@ module display_combined(
             case (game_state)
                 2'd0: begin // 開始畫面狀態
 					 outc <= 16'b0;
+					  obs_shifted <= 32'b0;
                     if (!jump||!crouch) begin  // 按下跳躍鍵開始遊戲
                         game_state <= 1;
                      //   outc <= 0;  // 清除畫面
@@ -212,6 +213,7 @@ module display_combined(
                     if (dino_row_data & obs_shifted[31:16]) begin 
                         game_state <= 2; // 碰撞後切換到結束狀態
                         outc <= dino_row_data | obs_shifted[31:16]; // 顯示碰撞瞬間
+								 obs_shifted <= 32'b0;
                     end else begin
                         outc <= dino_row_data | obs_shifted[31:16]; // 正常顯示
                     end
@@ -219,6 +221,7 @@ module display_combined(
                 
                 2'd2: begin // 結束畫面狀態
 					 outc <= 16'b0; 
+					  obs_shifted <= 32'b0;
                     if (!jump||!crouch) begin  // 按下跳躍鍵重新開始
                         game_state <= 0;
                       //  outc <= 0;
