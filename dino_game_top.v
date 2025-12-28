@@ -47,6 +47,7 @@ module dino_game_top(
         .clk(clk),              
         .rst(rst),
         .game_state(game_state), 
+		  .jump(jump),.crouch(crouch),
         .hex0(HEX0), .hex1(HEX1), .hex2(HEX2), .hex3(HEX3), .hex4(HEX4), .hex5(HEX5)
     );
 
@@ -216,7 +217,7 @@ module display_combined(
                 end
                 
                 2'd2: begin // 結束畫面狀態
-                    if (!jump||crouch) begin  // 按下跳躍鍵重新開始
+                    if (!jump||!crouch) begin  // 按下跳躍鍵重新開始
                         game_state <= 0;
                         outc <= 0;
                     end
@@ -385,7 +386,7 @@ endmodule
 
 module score_counter(
     input clk,              // 請接板子原本的 MAX10_CLK1_50 (50MHz)
-    input rst,              // Reset Button
+    input rst,  jump,crouch,            // Reset Button
     input [1:0] game_state, // 0:Reset, 1:Run, 2:Over
     output [6:0] hex0,      // Digit 0 (改成 7 bits)
     output [6:0] hex1,      // Digit 1
@@ -449,8 +450,10 @@ time_cnt <= 0;
             end else digit0 <= digit0 + 1;
         end
 		  else if ((game_state == 2'd00)||(game_state == 2'd10)) begin
-		              digit0 <= 0; digit1 <= 0; digit2 <= 0;
-            digit3 <= 0; digit4 <= 0; digit5 <= 0;
+					if(!jump||!crouch) begin
+		            digit0 <= 0; digit1 <= 0; digit2 <= 0;
+						digit3 <= 0; digit4 <= 0; digit5 <= 0;
+					end
 		  end
     end
 
