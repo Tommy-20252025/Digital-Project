@@ -1,6 +1,7 @@
 `define TimeExp 32'd416666 
 `define TimeTick 32'd2499 
 `define TimeStart 32'd5000  // 新增：開始畫面閃爍時鐘
+
 module dino_game_top(
     input clk, rst, 
     input jump, crouch,
@@ -27,12 +28,12 @@ module dino_game_top(
     random_gen r1(.clk(clkdiv), .rst(rst), .out(state));
 
     // 4. 移動邏輯
-    obstacle_move m1(.clk(clkdiv), .rst(rst), .state(state), .xcoor(xcoor), .shape(shape));
+    obstacle_move m1(.clk(clkdiv), .rst(rst), .state(state),.game_state(game_state),  .xcoor(xcoor), .shape(shape));
 
     // 5. 綜合顯示模組 (碰撞偵測與畫面控制都在這裡)
     display_combined display_unit(
         .clk(clkdis), .rst(rst),
-		  .jump(jump), // 用於開始遊戲
+		  .crouch(crouch),   .jump(jump), // 用於開始遊戲
         .dinonow(dinonow), 
         .shape(shape),     
         .xcoor(xcoor),     
@@ -55,6 +56,7 @@ endmodule
 module display_combined(
     input clk, rst, shape,    
     input jump, // 用於開始遊戲
+	 input crouch,
     input [2:0] dinonow,
     input [4:0] xcoor,
     output reg [7:0] dinor,
@@ -90,9 +92,9 @@ module display_combined(
         end_pattern[0] = 16'b0000000000000000;  
         end_pattern[1] = 16'b0000000000000000;
         end_pattern[2] = 16'b1110100010110000;  // GAME
-        end_pattern[3] = 16'b1000110010101000;  
+        end_pattern[3] = 16'b1000100110101000;  
         end_pattern[4] = 16'b1110101010100100;
-        end_pattern[5] = 16'b1000100110101000;  // OVER
+        end_pattern[5] = 16'b1000110010101000;  // OVER
         end_pattern[6] = 16'b1110100010110000;  
         end_pattern[7] = 16'b0000000000000000;
     end
@@ -122,7 +124,7 @@ module display_combined(
             
             case (game_state)
                 2'd0: begin // 開始畫面狀態
-                    if (!jump) begin  // 按下跳躍鍵開始遊戲
+                    if (!jump||!crouch) begin  // 按下跳躍鍵開始遊戲
                         game_state <= 1;
                         outc <= 0;  // 清除畫面
                     end
@@ -214,7 +216,7 @@ module display_combined(
                 end
                 
                 2'd2: begin // 結束畫面狀態
-                    if (!jump) begin  // 按下跳躍鍵重新開始
+                    if (!jump||crouch) begin  // 按下跳躍鍵重新開始
                         game_state <= 0;
                         outc <= 0;
                     end
@@ -308,18 +310,75 @@ module random_gen(input clk, rst, output reg out);
 endmodule
 
 // --- 輔助模組：障礙物移動 ---
-module obstacle_move(input clk, rst, state, output reg [4:0] xcoor, output reg shape);
+module obstacle_move(
+    input clk, rst, 
+    input [1:0] game_state,  // 新增：遊戲狀態輸入
+    input state, 
+    output reg [4:0] xcoor, 
+    output reg shape
+);
     reg [2:0] delay;
+    reg [31:0] start_delay_counter;  // 新增：開始延遲計數器
+    reg delay_complete;               // 新增：延遲完成標誌
+    
     always @(posedge clk or negedge rst) begin
         if (!rst) begin 
-            xcoor <= 0; shape <= 0; delay <= 0; 
-        end else if (delay < 3'd5) 
-            delay <= delay + 1;
+            xcoor <= 0; 
+            shape <= 0; 
+            delay <= 0; 
+            start_delay_counter <= 0;
+            delay_complete <= 0;
+        end 
         else begin
-            delay <= 0;
-            if (xcoor == 31) begin 
-                xcoor <= 0; shape <= state; 
-            end else xcoor <= xcoor + 1;
+            case (game_state)
+                2'd0: begin // 開始畫面狀態：重置所有障礙物相關狀態
+                    xcoor <= 0;
+                    shape <= 0;
+                    delay <= 0;
+                    start_delay_counter <= 0;
+                    delay_complete <= 0;
+                end
+                
+                2'd1: begin // 遊戲進行中狀態
+                    // 延遲2秒邏輯
+                    if (!delay_complete) begin
+                        // 計算2秒延遲 (假設 clkdiv 頻率約為 60Hz，2秒需要 120 個週期)
+                        // 可以根據實際時鐘頻率調整這個值
+                        if (start_delay_counter < 32'd120) begin // 大約2秒
+                            start_delay_counter <= start_delay_counter + 1;
+                        end 
+                        else begin
+                            delay_complete <= 1;
+                            start_delay_counter <= 0;
+                        end
+                    end 
+                    else begin
+                        // 延遲完成後，開始正常移動障礙物
+                        if (delay < 3'd5) 
+                            delay <= delay + 1;
+                        else begin
+                            delay <= 0;
+                            if (xcoor == 31) begin 
+                                xcoor <= 0; 
+                                shape <= state; 
+                            end else xcoor <= xcoor + 1;
+                        end
+                    end
+                end
+                
+                2'd2: begin // 結束畫面狀態：停止障礙物移動但保持當前狀態
+                    // 保持當前位置不變
+                    // 不移動障礙物
+                end
+                
+                default: begin
+                    xcoor <= 0;
+                    shape <= 0;
+                    delay <= 0;
+                    start_delay_counter <= 0;
+                    delay_complete <= 0;
+                end
+            endcase
         end
     end
 endmodule
@@ -352,6 +411,9 @@ module score_counter(
                 time_cnt <= 0;
             else 
                 time_cnt <= time_cnt + 1;
+        end
+        else begin // 只有在「遊戲進行中」才計數
+time_cnt <= 0;
         end
 		  // 如果 game_state 是 2 (結束) 或 0 (未開始)，計時器就停住不跑
     end
@@ -386,6 +448,10 @@ module score_counter(
                 end else digit1 <= digit1 + 1;
             end else digit0 <= digit0 + 1;
         end
+		  else if ((game_state == 2'd00)||(game_state == 2'd10)) begin
+		              digit0 <= 0; digit1 <= 0; digit2 <= 0;
+            digit3 <= 0; digit4 <= 0; digit5 <= 0;
+		  end
     end
 
     // 3. 七段顯示器解碼
